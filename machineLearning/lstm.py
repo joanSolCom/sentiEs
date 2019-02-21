@@ -44,7 +44,7 @@ word_index = tokenizer.word_index
 embed_dim = 400
 
 embeddings_index = dict()
-f = open('/home/joan/Escritorio/spanish_w2v_embeddings.txt')
+f = open('spanish_w2v_embeddings.txt')
 for line in f:
     values = line.split()
     word = values[0]
@@ -128,12 +128,12 @@ print(model.summary())
 units_out = 128
 
 opt = optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
-embedding_layer = Embedding(len(word_index) + 1, embed_dim, weights=[embedding_matrix], trainable=True)
+embedding_layer = Embedding(len(word_index) + 1, embed_dim, weights=[embedding_matrix], trainable=False)
 epochs = 20
 
-learning_rate = 0.1
+learning_rate = 0.01
 decay_rate = learning_rate / epochs
-momentum = 0.8
+momentum = 0.6
 sgd = optimizers.SGD(lr=learning_rate, momentum=momentum, decay=decay_rate, nesterov=False)
 
 
@@ -156,7 +156,7 @@ X_train, X_test, Y_train, Y_test = train_test_split(X,Y, test_size = 0.15, rando
 
 batch_size = 128
 
-validation_size = 300
+validation_size = 700
 X_validate = X_test[-validation_size:]
 Y_validate = Y_test[-validation_size:]
 X_test = X_test[:-validation_size]
