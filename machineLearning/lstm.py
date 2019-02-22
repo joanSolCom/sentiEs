@@ -1,5 +1,5 @@
-import numpy as np # linear algebra
-import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
+import numpy as np
+import pandas as pd
 
 from sklearn.feature_extraction.text import CountVectorizer
 from keras.preprocessing.text import Tokenizer
@@ -16,20 +16,44 @@ from keras.callbacks import EarlyStopping
 
 import re
 
+def load_char_embed(path):
+
+	char_embed = {}
+	raw = open(path,"r").read().split("\n")
+	for line in raw:
+		idx = line.split()[0]
+		vectorStr = line.split()[1:]
+		vector = []
+		for elem in vectorStr:
+			vector.append(float(elem))
+		
+		char_embed[idx] = vector
+
+	return char_embed
+
+
 #########################
 ##### PREPROCESSING #####
 #########################
 
-data = pd.read_csv("../extracted_general_train.tsv", sep='\t')
-data['text'] = data['text'].apply(lambda x: str(x).lower())
-data['text'] = data['text'].apply((lambda x: re.sub('[^a-zA-z0-9\s]','',x)))
+path = "../extracted_merged.tsv"
 
-print(data[ data['sentiment'] == 'P'].size)
-print(data[ data['sentiment'] == 'N'].size)
-print(data[ data['sentiment'] == 'NEU'].size)
+fd = open(path,"r")
+dictLabels = {}
+for line in fd:
+	label = line.split("\t")[1].strip()
+	if label not in dictLabels:
+		dictLabels[label] = 0
+	dictLabels[label] += 1
 
-for idx,row in data.iterrows():
-    row[0] = row[0].replace('rt',' ')
+fd.close()
+print(dictLabels)
+
+data = pd.read_csv(path, sep='\t')
+data['text'] = data['text'].apply(lambda x: str(x))
+#data['text'] = data['text'].apply((lambda x: re.sub('[^a-zA-z0-9\s]','',x)))
+
+#data = data.loc[data["sentiment"].isin(["P","N"])]
 
 tokenizer = Tokenizer(split=' ')
 tokenizer.fit_on_texts(data['text'].values)
@@ -53,14 +77,23 @@ for line in f:
 f.close()
 
 embedding_matrix = np.zeros((len(word_index) + 1, embed_dim))
+
+char_embed = load_char_embed("spanish_w2v_embeddings-char.txt")
+
 for word, i in word_index.items():
     embedding_vector = embeddings_index.get(word)
     if embedding_vector is not None:
         # words not found in embedding index will be all-zeros.
         embedding_matrix[i] = embedding_vector
     else:
-    	#CHAR EMBEDDINGS
-    	pass
+    	embedding_vector = []
+    	for char in word:
+    		if char in char_embed:
+    			embedding_vector.append(char_embed[char])
+    	
+    	if len(embedding_vector) > 3:
+    		embedding_matrix[i] = np.sum(embedding_vector,axis=0)
+
 
 ''' 
 
@@ -136,6 +169,7 @@ learning_rate = 0.01
 decay_rate = learning_rate / epochs
 momentum = 0.8
 dropout_rate = 0.5
+n_classes = 3
 
 ####################
 #### OPTIMIZERS ####
@@ -152,7 +186,7 @@ embedding_layer = Embedding(len(word_index) + 1, embed_dim, weights=[embedding_m
 lstm_layer = Bidirectional(LSTM(units_out, activation='tanh', recurrent_activation='hard_sigmoid', use_bias=True, kernel_initializer='glorot_uniform', recurrent_initializer='orthogonal', bias_initializer='zeros', unit_forget_bias=True, kernel_regularizer=None, recurrent_regularizer=None, bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, recurrent_constraint=None, bias_constraint=None, dropout=0.0, recurrent_dropout=0.0, implementation=1, return_sequences=False, return_state=False, go_backwards=False, stateful=False, unroll=False))
 gru_layer = GRU(units_out, activation='tanh', recurrent_activation='hard_sigmoid', use_bias=True, kernel_initializer='glorot_uniform', recurrent_initializer='orthogonal', bias_initializer='zeros', kernel_regularizer=None, recurrent_regularizer=None, bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, recurrent_constraint=None, bias_constraint=None, dropout=0.0, recurrent_dropout=0.0, implementation=1, return_sequences=False, return_state=False, go_backwards=False, stateful=False, unroll=False, reset_after=False)
 #softmax_layer = Dense(3, activation='softmax',kernel_regularizer=regularizers.l2(0.0001))
-softmax_layer = Dense(3, activation='softmax')
+softmax_layer = Dense(n_classes, activation='softmax')
 attention_layer = AttentionWeightedAverage()
 
 ####################
@@ -165,7 +199,7 @@ model.add(BatchNormalization())
 model.add(lstm_layer)
 model.add(Dropout(dropout_rate))
 model.add(softmax_layer)
-model.compile(optimizer=sgd,loss='categorical_crossentropy', metrics=['accuracy'])
+model.compile(optimizer=opt,loss='categorical_crossentropy', metrics=['accuracy'])
 
 print(model.summary())
 
