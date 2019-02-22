@@ -21,7 +21,7 @@ import re
 #########################
 
 data = pd.read_csv("../extracted_general_train.tsv", sep='\t')
-data['text'] = data['text'].apply(lambda x: x.lower())
+data['text'] = data['text'].apply(lambda x: str(x).lower())
 data['text'] = data['text'].apply((lambda x: re.sub('[^a-zA-z0-9\s]','',x)))
 
 print(data[ data['sentiment'] == 'P'].size)
@@ -125,36 +125,54 @@ print(model.summary())
 
 
 '''
-units_out = 128
 
-opt = optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
-embedding_layer = Embedding(len(word_index) + 1, embed_dim, weights=[embedding_matrix], trainable=False)
-epochs = 20
+###################
+#### PARAMETERS ###
+###################
 
+units_out = 64
+epochs = 100
 learning_rate = 0.01
 decay_rate = learning_rate / epochs
-momentum = 0.6
+momentum = 0.8
+dropout_rate = 0.5
+
+####################
+#### OPTIMIZERS ####
+####################
+
 sgd = optimizers.SGD(lr=learning_rate, momentum=momentum, decay=decay_rate, nesterov=False)
+opt = optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
 
+####################
+###### LAYERS ######
+####################
 
+embedding_layer = Embedding(len(word_index) + 1, embed_dim, weights=[embedding_matrix], trainable=True)
 lstm_layer = Bidirectional(LSTM(units_out, activation='tanh', recurrent_activation='hard_sigmoid', use_bias=True, kernel_initializer='glorot_uniform', recurrent_initializer='orthogonal', bias_initializer='zeros', unit_forget_bias=True, kernel_regularizer=None, recurrent_regularizer=None, bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, recurrent_constraint=None, bias_constraint=None, dropout=0.0, recurrent_dropout=0.0, implementation=1, return_sequences=False, return_state=False, go_backwards=False, stateful=False, unroll=False))
 gru_layer = GRU(units_out, activation='tanh', recurrent_activation='hard_sigmoid', use_bias=True, kernel_initializer='glorot_uniform', recurrent_initializer='orthogonal', bias_initializer='zeros', kernel_regularizer=None, recurrent_regularizer=None, bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, recurrent_constraint=None, bias_constraint=None, dropout=0.0, recurrent_dropout=0.0, implementation=1, return_sequences=False, return_state=False, go_backwards=False, stateful=False, unroll=False, reset_after=False)
+#softmax_layer = Dense(3, activation='softmax',kernel_regularizer=regularizers.l2(0.0001))
+softmax_layer = Dense(3, activation='softmax')
+attention_layer = AttentionWeightedAverage()
+
+####################
+###### MODEL #######
+####################
 
 model = Sequential()
 model.add(embedding_layer)
+model.add(BatchNormalization())
 model.add(lstm_layer)
-model.add(Dropout(0.6))
-model.add(Dense(3, activation='softmax',kernel_regularizer=regularizers.l2(0.00001)))
+model.add(Dropout(dropout_rate))
+model.add(softmax_layer)
 model.compile(optimizer=sgd,loss='categorical_crossentropy', metrics=['accuracy'])
-
 
 print(model.summary())
 
 Y = pd.get_dummies(data['sentiment']).values
-print(Y)
 X_train, X_test, Y_train, Y_test = train_test_split(X,Y, test_size = 0.15, random_state = 42)
 
-batch_size = 128
+batch_size = 500
 
 validation_size = 700
 X_validate = X_test[-validation_size:]
