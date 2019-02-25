@@ -165,7 +165,7 @@ print(model.summary())
 #### PARAMETERS ###
 ###################
 
-units_out = 128
+units_out = 64
 epochs = 100
 learning_rate = 0.1
 decay_rate = learning_rate / epochs
@@ -193,6 +193,8 @@ lstm_layer = Bidirectional(LSTM(units_out, activation='tanh', recurrent_activati
 gru_layer = GRU(units_out, activation='tanh', recurrent_activation='hard_sigmoid', use_bias=True, kernel_initializer='glorot_uniform', recurrent_initializer='orthogonal', bias_initializer='zeros', kernel_regularizer=None, recurrent_regularizer=None, bias_regularizer=None, activity_regularizer=None, kernel_constraint=None, recurrent_constraint=None, bias_constraint=None, dropout=0.0, recurrent_dropout=0.0, implementation=1, return_sequences=False, return_state=False, go_backwards=False, stateful=False, unroll=False, reset_after=False)
 #softmax_layer = Dense(3, activation='softmax',kernel_regularizer=regularizers.l2(0.0001))
 softmax_layer = Dense(n_classes, activation='softmax')
+sigmoid_layer = Dense(n_classes, activation='sigmoid')
+
 attention_layer = AttentionWeightedAverage()
 
 ####################
@@ -201,10 +203,10 @@ attention_layer = AttentionWeightedAverage()
 
 model = Sequential()
 model.add(embedding_layer_pretrained)
-model.add(BatchNormalization())
 model.add(lstm_layer)
 model.add(Dropout(dropout_rate))
-model.add(softmax_layer)
+model.add(sigmoid_layer)
+#model.add(BatchNormalization())
 model.compile(optimizer=sgd,loss='categorical_crossentropy', metrics=['accuracy'])
 
 print(model.summary())
